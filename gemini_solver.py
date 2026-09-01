@@ -70,35 +70,30 @@ def get_gemini_client(api_key: str = None):
 def analyze_lesson(
     image: Image.Image,
     model_name: str = "gemini-3.6-flash",
-    api_key: str = None,
-    max_retries: int = 3
+    api_key: str = None
 ) -> LessonResponse:
     """
-    Envía la captura de pantalla a Gemini y retorna la respuesta estructurada.
-    Utiliza los modelos oficiales activos (gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.1-flash-lite).
+    Envía la captura de pantalla a Gemini usando una estrategia de cascada rápida:
+      - 1 intento a gemini-3.6-flash (avanzado). Si responde 503, salta de inmediato.
+      - 2 intentos a gemini-3.5-flash (intermedio).
+      - 5 intentos a gemini-3.1-flash-lite (último recurso).
     """
     client = get_gemini_client(api_key)
     
-    # Modelos vigentes confirmados por Google API
-    available_models = [
-        model_name,
-        "gemini-3.5-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite"
+    # Plan personalizado de fallbacks rápido
+    model_plan = [
+        ("gemini-3.6-flash", 1, 1.0),
+        ("gemini-3.5-flash", 2, 1.0),
+        ("gemini-3.1-flash-lite", 5, 1.5)
     ]
-    
-    # Eliminar duplicados manteniendo orden
-    fallback_models = []
-    for m in available_models:
-        if m not in fallback_models:
-            fallback_models.append(m)
 
     last_exception = None
 
-    for current_model in fallback_models:
-        print(f"[Análisis] Intentando con modelo: {current_model}")
-        
-        for attempt in range(1, max_retries + 1):
+    for current_model, max_attempts, initial_delay in model_plan:
+        print(f"[Análisis] Consultando modelo: {current_model}")
+        current_delay = initial_delay
+
+        for attempt in range(1, max_attempts + 1):
             try:
                 response = client.models.generate_content(
                     model=current_model,
@@ -115,17 +110,17 @@ def analyze_lesson(
             except Exception as e:
                 last_exception = e
                 err_msg = str(e)
-                
                 is_busy = "503" in err_msg or "UNAVAILABLE" in err_msg or "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg
-                
+
                 if is_busy:
-                    print(f"[Aviso 503/429] {current_model} ocupado (intento {attempt}/{max_retries}). Cambiando/Reintentando...")
-                    time.sleep(1.5)
-                    # Si el modelo está muy ocupado, saltar directo a probar el siguiente modelo alternativo de la lista
-                    if attempt >= 2:
-                        break
+                    print(f"[Aviso 503] {current_model} ocupado (intento {attempt}/{max_attempts}).")
+                    if attempt < max_attempts:
+                        time.sleep(current_delay)
+                        current_delay *= 1.5
                 else:
                     print(f"[Aviso Error] {current_model}: {err_msg}")
                     break
 
-    raise last_exception or RuntimeError("No se pudo obtener respuesta de la API tras probar los modelos de Gemini 3.x.")
+        print(f"[Fallback Rápido] Saltando al siguiente modelo...")
+
+    raise last_exception or RuntimeError("No se pudo obtener respuesta de la API tras probar la cascada de modelos.")
