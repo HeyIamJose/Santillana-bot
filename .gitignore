@@ -1,0 +1,29 @@
+# Entorno virtual de Python
+venv/
+env/
+ENV/
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Variables de entorno y credenciales (¡SÚPER IMPORTANTE!)
+.env
+config_secrets.json
+
+# Capturas de pantalla e imágenes generadas por las pruebas
+*.png
+*.jpg
+*.jpeg
+
+# Videos grabados o procesados
+*.mp4
+*.mkv
+*.avi
+
+# Archivos de configuración de IDEs o editores
+.vscode/
+.idea/
+*.swp
