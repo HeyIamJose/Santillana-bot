@@ -7,6 +7,15 @@ from screen_utils import normalized_to_pixel, get_screen_size
 # Habilitar failsafe global
 pyautogui.FAILSAFE = FAILSAFE
 
+def clamp_pixel(px: int, py: int, screen_width: int, screen_height: int, margin: int = 5):
+    """
+    Limita las coordenadas de píxeles para evitar tocar exactamente los bordes (0, 0) de la pantalla
+    y no disparar Failsafe por accidente.
+    """
+    safe_x = max(margin, min(px, screen_width - margin))
+    safe_y = max(margin, min(py, screen_height - margin))
+    return safe_x, safe_y
+
 def execute_action(action: dict, screen_width: int = None, screen_height: int = None, region_offset=(0, 0)):
     """
     Ejecuta una acción devuelta por Gemini en la pantalla física.
@@ -28,7 +37,8 @@ def execute_action(action: dict, screen_width: int = None, screen_height: int = 
         print(f"[Acción Omitida] Coordenadas inválidas: {coords}")
         return
 
-    px, py = normalized_to_pixel(coords[0], coords[1], screen_width, screen_height, off_x, off_y)
+    raw_px, raw_py = normalized_to_pixel(coords[0], coords[1], screen_width, screen_height, off_x, off_y)
+    px, py = clamp_pixel(raw_px, raw_py, screen_width, screen_height)
 
     print(f"\n[Ejecutando] {atype.upper()} -> '{desc}' en píxeles ({px}, {py})")
 
@@ -39,7 +49,8 @@ def execute_action(action: dict, screen_width: int = None, screen_height: int = 
 
     elif atype == "connect":
         drop_coords = action.get("drop_coordinates", [0, 0])
-        dpx, dpy = normalized_to_pixel(drop_coords[0], drop_coords[1], screen_width, screen_height, off_x, off_y)
+        raw_dpx, raw_dpy = normalized_to_pixel(drop_coords[0], drop_coords[1], screen_width, screen_height, off_x, off_y)
+        dpx, dpy = clamp_pixel(raw_dpx, raw_dpy, screen_width, screen_height)
         print(f"            Conectando Pareja (Clic Origen -> Clic Destino): ({px}, {py}) -> ({dpx}, {dpy})...")
         
         # Clic 1: Origen
@@ -54,7 +65,8 @@ def execute_action(action: dict, screen_width: int = None, screen_height: int = 
 
     elif atype == "drag":
         drop_coords = action.get("drop_coordinates", [0, 0])
-        dpx, dpy = normalized_to_pixel(drop_coords[0], drop_coords[1], screen_width, screen_height, off_x, off_y)
+        raw_dpx, raw_dpy = normalized_to_pixel(drop_coords[0], drop_coords[1], screen_width, screen_height, off_x, off_y)
+        dpx, dpy = clamp_pixel(raw_dpx, raw_dpy, screen_width, screen_height)
         print(f"            Arrastre Físico Sostenido (Sopa de letras): ({px}, {py}) ===> ({dpx}, {dpy})...")
         
         # Mover al punto inicial (primera letra), presionar, mover al punto final (última letra) y soltar

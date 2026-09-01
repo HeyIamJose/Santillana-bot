@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -31,9 +32,13 @@ def test_api(image_path: str = None):
         img = capture_screen(save_path="test_capture.png")
 
     print(f"Enviando imagen a {MODEL_NAME}...")
+    t_start = time.time()
     try:
         response = analyze_lesson(img, model_name=MODEL_NAME)
+        t_end = time.time()
+        
         print("\n=== RESPUESTA DE GEMINI ===")
+        print(f"⏱️  Tiempo de respuesta Gemini API: {t_end - t_start:.2f} segundos")
         print(f"Tipo de ejercicio: {response.exercise_type}")
         print(f"Explicación: {response.explanation}\n")
         print("Acciones sugeridas:")

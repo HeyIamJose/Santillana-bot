@@ -31,25 +31,34 @@ def run_bot(auto_mode: bool = False):
     print("\n¡Comenzando análisis!\n")
 
     step_count = 1
+    session_start_time = time.time()
     screen_w, screen_h = get_screen_size()
 
     while True:
         print(f"\n--- PASO #{step_count} ---")
+        t_step_start = time.time()
         
         # 1. Capturar pantalla
         print("[1/4] Capturando pantalla...")
+        t_cap_start = time.time()
         screenshot = capture_screen(region=SCREEN_REGION, save_path="last_capture.png")
+        t_cap_end = time.time()
+        cap_duration = t_cap_end - t_cap_start
 
         # 2. Analizar con Gemini
         print("[2/4] Enviando imagen a Gemini Vision para análisis...")
+        t_gemini_start = time.time()
         try:
             response = analyze_lesson(screenshot, model_name=MODEL_NAME)
         except Exception as e:
             print(f"[Error de API] {e}")
             break
+        t_gemini_end = time.time()
+        gemini_duration = t_gemini_end - t_gemini_start
 
         print(f"\n>> Tipo de ejercicio detectado: {response.exercise_type}")
-        print(f">> Razonamiento de Gemini: {response.explanation}\n")
+        print(f">> Razonamiento de Gemini: {response.explanation}")
+        print(f"⏱️  Tiempo de respuesta de Gemini: {gemini_duration:.2f} segundos\n")
 
         # Convertir objetos Pydantic a lista de diccionarios
         actions_list = [act.model_dump() for act in response.actions]
@@ -82,6 +91,7 @@ def run_bot(auto_mode: bool = False):
 
         # 5. Ejecutar acciones
         print("[3/4] Ejecutando acciones en la pantalla...")
+        t_exec_start = time.time()
         is_done = False
         for act in actions_list:
             if act.get("action_type") == "done":
@@ -91,6 +101,18 @@ def run_bot(auto_mode: bool = False):
             
             execute_action(act, screen_width=screen_w, screen_height=screen_h)
 
+        t_exec_end = time.time()
+        exec_duration = t_exec_end - t_exec_start
+        t_step_end = time.time()
+        step_total_duration = t_step_end - t_step_start
+
+        print("-" * 50)
+        print(f"⏱️  METRICAS PASO #{step_count}:")
+        print(f"    - Análisis Gemini Vision  : {gemini_duration:.2f}s")
+        print(f"    - Ejecución de Acciones   : {exec_duration:.2f}s")
+        print(f"    - Tiempo Total del Paso   : {step_total_duration:.2f}s")
+        print("-" * 50)
+
         if is_done:
             break
 
@@ -98,7 +120,8 @@ def run_bot(auto_mode: bool = False):
         print("[4/4] Esperando 3 segundos antes del siguiente paso...")
         time.sleep(3)
 
-    print("\n¡Ejecución del Bot finalizada!")
+    total_session_duration = time.time() - session_start_time
+    print(f"\n¡Ejecución del Bot finalizada! (Tiempo acumulado sesión: {total_session_duration:.2f}s)")
 
 if __name__ == "__main__":
     auto = "--auto" in sys.argv
